@@ -20,8 +20,10 @@ class COS(object):
         # 正常情况日志级别使用INFO，需要定位时可以修改为DEBUG，此时SDK会打印和服务端的通信信息
         logging.basicConfig(level=logging.INFO, stream=sys.stdout)
         self.region = region
-        config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Token=token, Scheme=scheme, Endpoint=endpoint)
-        self.client = CosS3Client(config)
+        acc_config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Token=token, Scheme=scheme, Endpoint=endpoint)
+        normal_config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Token=token, Scheme=scheme)
+        self.acc_client = CosS3Client(acc_config)
+        self.normal_client = CosS3Client(normal_config)
 
     def upload(self, file_name, dist_name, bucket='file-1254396400'):
         """
@@ -31,7 +33,7 @@ class COS(object):
         :param dist_name: 目标文件全路径，如：./ruiyang/rj.exe
         :return:
         """
-        response = self.client.upload_file(
+        response = self.acc_client.upload_file(
             Bucket=bucket,
             LocalFilePath=file_name,
             Key=dist_name,
@@ -51,7 +53,7 @@ class COS(object):
         :param source_region: 源文件所在区域
         :return:
         """
-        self.client.copy(
+        self.normal_client.copy(
             Bucket=dist_bucket,
             Key=dist_file,
             CopyStatus='Replaced',
