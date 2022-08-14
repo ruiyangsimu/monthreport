@@ -86,8 +86,7 @@ if __name__ == '__main__':
     cos = COS(secret_id=args.si, secret_key=args.sk)
     cos.upload(file_name=args.sf, dist_name=args.df)
     now_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    #cos.copy(source_file=args.df, dist_file="./ruiyang/ruiyang_" + now_time + ".exe",
-             source_bucket='file-1254396400')
+    #cos.copy(source_file=args.df, dist_file="./ruiyang/ruiyang_" + now_time + ".exe", source_bucket='file-1254396400')
     # 因github上传为国外服务器，无法使用加速域名拷贝，正常域名拷贝速度太慢，所以选择再上传一次
     cos.upload(file_name=args.sf, dist_name="./ruiyang/ruiyang_" + now_time + ".exe")
 
