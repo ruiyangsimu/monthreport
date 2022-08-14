@@ -31,10 +31,10 @@ jobs:
         if ( Test-Path ./requirements.txt ) {pip install -r requirements.txt}
     - name: build
       run: |
-        pyinstaller --clean --win-private-assemblies --key 0123456789 -F main.py
+        pyinstaller --clean --win-private-assemblies --key ${{ secrets.PACKAGE_KEY }} -F main.py
     - name: upload
       run: |
-        python ./upload.py --si=AKIDIPGsEJ8gyziAMHvIODl21kCNHuGL9hyy --sk=kDQM1PWEfpjMhlY5LK1ScV7TYMt99rIS --sf=dist/main.exe --df=ruiyang/ruiyang.exe
+        python ./upload.py --si=${{ secrets.COS_SECRET_ID }} --sk=${{ secrets.COS_SECRET_KEY }} --sf=dist/main.exe --df=ruiyang/ruiyang.exe
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
