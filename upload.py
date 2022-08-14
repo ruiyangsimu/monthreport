@@ -7,7 +7,7 @@ import argparse
 import time
 
 class COS(object):
-    def __init__(self, secret_id, secret_key, region='ap-shanghai', token=None, scheme='https'):
+    def __init__(self, secret_id, secret_key, region='ap-shanghai', token=None, scheme='https', endpoint="cos.accelerate.myqcloud.com"):
         """
         初始化上传信息
         :param secret_id: 替换为用户的 SecretId，请登录访问管理控制台进行查看和管理，https://console.cloud.tencent.com/cam/capi
@@ -15,11 +15,12 @@ class COS(object):
         :param region:  替换为用户的 region，已创建桶归属的region可以在控制台查看，https://console.cloud.tencent.com/cos5/bucket，COS支持的所有region列表参见https://cloud.tencent.com/document/product/436/6224
         :param token: 如果使用永久密钥不需要填入token，如果使用临时密钥需要填入，临时密钥生成和使用指引参见https://cloud.tencent.com/document/product/436/14
         :param scheme: 指定使用 http/https 协议来访问 COS，默认为 https，可不填
+        :param endpoint: 指定使用 http/https 协议来访问 COS，默认为 https，可不填
         """
         # 正常情况日志级别使用INFO，需要定位时可以修改为DEBUG，此时SDK会打印和服务端的通信信息
         logging.basicConfig(level=logging.INFO, stream=sys.stdout)
         self.region = region
-        config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Token=token, Scheme=scheme)
+        config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Token=token, Scheme=scheme, Endpoint=endpoint)
         self.client = CosS3Client(config)
 
     def upload(self, file_name, dist_name, bucket='file-1254396400'):
