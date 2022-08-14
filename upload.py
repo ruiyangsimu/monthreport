@@ -5,6 +5,8 @@ import sys
 import logging
 import argparse
 import time
+import pytz
+from datetime import datetime
 
 class COS(object):
     def __init__(self, secret_id, secret_key, region='ap-shanghai', token=None, scheme='https', endpoint="cos.accelerate.myqcloud.com"):
@@ -64,6 +66,33 @@ class COS(object):
             }
         )
 
+
+    @staticmethod
+    def beijing_time():
+        # 北京时间
+        utc = pytz.utc
+        beijing = pytz.timezone("Asia/Shanghai")
+
+        # 时间戳
+        loc_timestamp = time.time()
+
+        # 转utc时间 datetime.datetime 类型
+        utc_date = datetime.utcfromtimestamp(loc_timestamp)
+
+        # 转utc当地 标识的时间
+        utc_loc_time = utc.localize(utc_date)
+        fmt = '%Y-%m-%d %H:%M:%S'
+
+        # 转北京时间
+        beijing_time = utc_loc_time.astimezone(beijing)
+
+        # utc 时间
+        utc_time = beijing_time
+
+        # cst时间
+        cst_time = beijing_time.strftime(fmt)
+        return cst_time
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='操作腾讯云COS')
     parser.add_argument('--si',
@@ -88,5 +117,5 @@ if __name__ == '__main__':
     now_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     #cos.copy(source_file=args.df, dist_file="./ruiyang/ruiyang_" + now_time + ".exe", source_bucket='file-1254396400')
     # 因github上传为国外服务器，无法使用加速域名拷贝，正常域名拷贝速度太慢，所以选择再上传一次
-    cos.upload(file_name=args.sf, dist_name="./ruiyang/ruiyang_" + now_time + ".exe")
+    cos.upload(file_name=args.sf, dist_name="./ruiyang/ruiyang_" + COS.beijing_time() + ".exe")
 
