@@ -7,3 +7,4 @@ Pillow==7.0.0
 xlrd==1.2.0
 tinyaes==1.0.3
 pyinstaller==5.3
+cos-python-sdk-v5==1.9.20
