@@ -1,2 +1,6 @@
 gen
 .idea
+dist
+build
+*.exe
+venv
