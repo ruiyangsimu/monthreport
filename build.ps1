@@ -1,0 +1,1 @@
+pyinstaller --clean --win-private-assemblies --key 0123456789 -F main.py
