@@ -4,4 +4,4 @@
 .\venv\Scripts\activate.ps1
 # 安装包
 pip install -r .\requirements.txt
-pyinstaller --clean --win-private-assemblies --key 0123456789 -F main.py
+pyinstaller --clean --win-private-assemblies --key 0123456789 -i .\ui\resources\logo.png -F app.py -n ruiyang --noconsole
