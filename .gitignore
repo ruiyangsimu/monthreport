@@ -4,3 +4,6 @@ dist
 build
 *.exe
 venv
+*.spec
+*.log
+__pycache__

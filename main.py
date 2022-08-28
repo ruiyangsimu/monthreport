@@ -21,9 +21,18 @@ import datetime
 # from WindPy import w
 from copy import copy
 import math
+import logging.config
+import yaml
+
+with open('log.yaml', 'r') as f:
+    config = yaml.safe_load(f.read())
+    logging.config.dictConfig(config)
+
+logger = logging.getLogger("main")
 
 class Picture(object):
     def __init__(self, file_name='data.xlsx', word_template_name='template.docx', visible=False):
+        logger.debug("start")
         mpl.rcParams['font.sans-serif'] = ['STKAITI']  # 指定默认字体：解决plot不能显示中文问题
         mpl.rcParams['font.weight'] = 'normal'
         mpl.rcParams['axes.unicode_minus'] = False  # 解决保存图像是负号'-'显示为方块的问题
@@ -379,6 +388,7 @@ class Picture(object):
         :param config:
         :return:
         """
+        s = time.time()
         word = DispatchEx("word.Application")
         doc = word.Documents.Open(os.path.abspath(self.word_template_name))
         fill_data = config.loc[4:4].values[0]
@@ -398,6 +408,7 @@ class Picture(object):
         doc.SaveAs(os.path.abspath('./gen/' + product_name + '/' + product_name + '-月报.docx'))
         doc.Close()
         word.Quit()
+        logger.debug("%s gen word cost: %s s", product_name, "{:.4f}".format(time.time() - s))
 
     def excel_catch_screen(self, filename, sheetname, screen_area, prduct_name):
         """
@@ -471,18 +482,20 @@ class Picture(object):
         df1.loc[m['Green'], 'Green'] = c3
         return df1
 
-    def generate_table(self, prduct_name, data, config):
+    def generate_table(self, product_name, data, config):
         """
         生成表格
-        :param prduct_name:
+        :param product_name:
         :param data:
         :param config:
         :return:
         """
+        s = time.time()
         flag = 'Y'
         while flag == 'Y':  # 循环调用截图函数
-            flag = self.excel_catch_screen(os.path.abspath(self.data_name), prduct_name + "-表格",
-                                           config.iloc[3:5, 0:1].values[0][0], prduct_name)
+            flag = self.excel_catch_screen(os.path.abspath(self.data_name), product_name + "-表格",
+                                           config.iloc[3:5, 0:1].values[0][0], product_name)
+        logger.debug("%s gen table cost: %s s", product_name, "{:.4f}".format(time.time() - s))
         return
 
     def generate_pic(self, product_name, data, config):
@@ -493,6 +506,7 @@ class Picture(object):
         :param config:
         :return:
         """
+        s = time.time()
         # 年份标记竖直方向的位置，允许用户进行上下调节
         year_y_position = {}
         for item in config.loc[0:1].values[0]:
@@ -732,6 +746,7 @@ class Picture(object):
         file_name = product_name + "-图.png"
         self.save_pic(product_name, file_name, plt)
         plt.close(fig)
+        logger.debug("%s gen picture cost: %s s", product_name, "{:.4f}".format(time.time() - s))
 
     def get_change_text_y(self, column_names, data, data_row, y_1_span, y_1_min_limit):
         """
@@ -808,6 +823,7 @@ class Picture(object):
         :param flag: horizontal or vertical
         :return:
         """
+        s = time.time()
         img1, img2 = Image.open(png1), Image.open(png2)
         # 统一图片尺寸，可以自定义设置（宽，高）
         # img1 = img1.resize((1500, 1000), Image.ANTIALIAS)
@@ -824,6 +840,7 @@ class Picture(object):
         joint.paste(img1, loc1)
         joint.paste(img2, loc2)
         joint.save(file)
+        logger.debug("%s compose pic cost: %s s", product_name, "{:.4f}".format(time.time() - s))
 
     def mkdir(self, path):
         """
@@ -864,7 +881,7 @@ class Picture(object):
             self.generate_pic(name, self.data[pic], self.data[config])
             self.generate_table(name, self.data[table], self.data[config])
             self.compose_pic("./gen/" + name + "/" + pic + ".png", "./gen/" + name + "/" + table + ".png", name)
-            self.gen_word(name, self.data[config])
+            # self.gen_word(name, self.data[config])
         self.wb.Close(SaveChanges=0)  # 关闭工作薄，不保存
         self.excel.Quit()  # 退出excel
         if self.visible:

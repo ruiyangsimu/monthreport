@@ -14,7 +14,7 @@ class Window(QMainWindow, Ui_MainWindow):
 
     def connectSignalsSlots(self):
         self.action_Exit.triggered.connect(self.close)
-        self.action_Find_Replace.triggered.connect(self.findAndReplace)
+        # self.action_Find_Replace.triggered.connect(self.findAndReplace)
         self.action_About.triggered.connect(self.about)
 
     def findAndReplace(self):
@@ -24,11 +24,9 @@ class Window(QMainWindow, Ui_MainWindow):
     def about(self):
         QMessageBox.about(
             self,
-            "About Sample Editor",
-            "<p>A sample text editor app built with:</p>"
-            "<p>- PyQt</p>"
-            "<p>- Qt Designer</p>"
-            "<p>- Python</p>",
+            "关于",
+            "<p>睿扬运营系统:</p>"
+            "<p>- 月报生成功能</p>",
         )
 
 
