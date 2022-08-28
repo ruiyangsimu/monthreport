@@ -8,3 +8,7 @@ xlrd==1.2.0
 tinyaes==1.0.3
 pyinstaller==5.3
 cos-python-sdk-v5==1.9.20
+pyyaml==6.0
+#PyQt5==5.15.7
+PySide2==5.15.2.1
+pyqt5-tools==5.15.4.3.2
