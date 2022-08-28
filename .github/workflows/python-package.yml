@@ -29,7 +29,7 @@ jobs:
         if ( Test-Path ./requirements.txt ) {pip install -r requirements.txt}
     - name: build
       run: |
-        pyinstaller --clean --win-private-assemblies --key ${{secrets.PACKAGE_KEY}} -i .\ui\resources\logo.png -F main.py  -n ruiyang --noconsole
+        pyinstaller --clean --win-private-assemblies --key ${{secrets.PACKAGE_KEY}} -i .\ui\resources\logo.png -F app.py  -n ruiyang --noconsole
     - name: upload
       run: |
         python ./upload.py --si=${{secrets.COS_SECRET_ID}} --sk=${{secrets.COS_SECRET_KEY}} --sf=dist/ruiyang.exe --df=ruiyang/ruiyang.exe
