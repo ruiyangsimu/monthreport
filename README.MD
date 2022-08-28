@@ -15,3 +15,7 @@
 2. 打开.\ui\main_window.ui文件后进行编辑
 3. 编辑完成后在powershell中执行`.\bin\genui.ps1`,生成main_window_ui.py
 4. 运行app.py
+
+----
+参考
+> https://blog.karatos.in/a?ID=00950-d548251c-9168-43dd-86e2-e652770e4769#%E5%BB%BA%E7%AB%8B%20images.qrc
