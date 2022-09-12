@@ -1,9 +1,20 @@
+import logging
 import sys
 
+import yaml
+from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QApplication, QDialog, QMainWindow, QMessageBox
 from PyQt5.uic import loadUi
 
+from Picture import Picture
+from gen_pic import Ui_Gen_Pic
 from main_window_ui import Ui_MainWindow
+
+with open('log.yaml', 'r') as f:
+    config = yaml.safe_load(f.read())
+    logging.config.dictConfig(config)
+
+logger = logging.getLogger("app")
 
 
 class Window(QMainWindow, Ui_MainWindow):
@@ -15,11 +26,31 @@ class Window(QMainWindow, Ui_MainWindow):
     def connectSignalsSlots(self):
         self.action_Exit.triggered.connect(self.close)
         # self.action_Find_Replace.triggered.connect(self.findAndReplace)
+        self.action_genword.triggered.connect(self.genDocProcessBar)
+        self.action_GenPic.triggered.connect(self.genPic)
         self.action_About.triggered.connect(self.about)
+
+    def genDocProcessBar(self):
+        # processBar = CommonProgressBar()
+        # processBar.show()
+        pass
 
     def findAndReplace(self):
         dialog = FindReplaceDialog(self)
         dialog.exec()
+
+    def genPic(self):
+        # pic = Picture()
+        # processBar = CommonProgressBar(10, pic, "图片生成")
+        # genPicThread = GenPicThread(pic)
+        # genPicThread._signal.connect(processBar.signal_accept)
+        # processBar.show()
+        # genPicThread.start()
+        self.window = QtWidgets.QMainWindow()
+        self.gen_pic = Ui_Gen_Pic()
+        self.gen_pic.setupUi(self.window)
+        self.gen_pic.setData(Picture())
+        self.window.show()
 
     def about(self):
         QMessageBox.about(

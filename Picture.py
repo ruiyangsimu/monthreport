@@ -1,37 +1,42 @@
+import datetime
+import logging.config
+import math
 import os
-import time
-
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mtick
-import matplotlib.dates as mdate
-from pylab import mpl
-import matplotlib.dates as mdates
-from matplotlib import font_manager
 import sys
-import pandas as pd
-from win32com.client import DispatchEx
-import pythoncom
-from PIL import ImageGrab, Image
-import datetime
-import numpy as np
-from dateutil.relativedelta import relativedelta
-import openpyxl
-import datetime
+import time
 # from WindPy import w
 from copy import copy
-import math
-import logging.config
+
+import matplotlib
+
+matplotlib.use('Qt5Agg')
+import matplotlib.dates as mdate
+import matplotlib.dates as mdates
+from matplotlib import pyplot as plt
+# import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
+import numpy as np
+import openpyxl
+import pandas as pd
 import yaml
+from PIL import ImageGrab, Image
+from dateutil.relativedelta import relativedelta
+from matplotlib import font_manager
+from pylab import mpl
+from win32com.client import DispatchEx
 
 with open('log.yaml', 'r') as f:
     config = yaml.safe_load(f.read())
     logging.config.dictConfig(config)
 
-logger = logging.getLogger("main")
+logger = logging.getLogger("picture")
+
 
 class Picture(object):
-    def __init__(self, file_name='data.xlsx', word_template_name='template.docx', visible=False):
+    def __int__(self):
+        pass
+
+    def load(self, file_name='data.xlsx', word_template_name='template.docx', visible=False):
         logger.debug("start")
         mpl.rcParams['font.sans-serif'] = ['STKAITI']  # 指定默认字体：解决plot不能显示中文问题
         mpl.rcParams['font.weight'] = 'normal'
@@ -58,26 +63,28 @@ class Picture(object):
         self.dividend_annual = dict(zip(dividend['产品名称'].values, dividend['差额'].values))
         self.dividend = dict(zip(dividend['产品名称'].values, dividend['总分红'].values))
 
-        self.excel = DispatchEx("Excel.Application")  # 启动excel
+        # self.excel = DispatchEx("Excel.Application")  # 启动excel
         # excel files update
         self.config = pd.read_excel('config.xlsx')
 
+        # 是否生成周报
         if self.config.values[2, 1] == 0:
             names = self.config.values[3, 1].split(':')
             self.product_name = [i for i in names if i in self.product_name]
-
+        # 是否更新收益率曲线excel
         if self.config.values[0, 1] == 1:
             self.product_curve_template_generate()
+        # 是否更新data excel
         if self.config.values[1, 1] == 1:
             self.data_excel_generate()
         self.check_excel_generate()
         self.data = pd.read_excel(file_name, sheet_name=None)
-        self.excel.Visible = visible  # 可视化
-        self.excel.DisplayAlerts = False  # 是否显示警告
-        self.wb = self.excel.Workbooks.Open(os.path.abspath(file_name))  # 打开excel
-        self.word = DispatchEx("Word.Application")  # 启动word
-        self.word.Visible = visible  # 可视化
-        self.word.DisplayAlerts = False  # 是否显示警告
+        # self.excel.Visible = visible  # 可视化
+        # self.excel.DisplayAlerts = False  # 是否显示警告
+        # self.wb = self.excel.Workbooks.Open(os.path.abspath(file_name))  # 打开excel
+        # self.word = DispatchEx("Word.Application")  # 启动word
+        # self.word.Visible = visible  # 可视化
+        # self.word.DisplayAlerts = False  # 是否显示警告
 
     def product_curve_template_generate(self):
         file_name = os.listdir()
@@ -90,17 +97,20 @@ class Picture(object):
         sheet_product_position = excel_product_position['Sheet2']
 
         def get_position(product_name):
-            for i in range(1, sheet_product_position.max_row+1):
-                if sheet_product_position.cell(i, 1).value is not None and product_name in sheet_product_position.cell(i, 1).value:
+            for i in range(1, sheet_product_position.max_row + 1):
+                if sheet_product_position.cell(i, 1).value is not None and product_name in sheet_product_position.cell(
+                        i, 1).value:
                     return sheet_product_position.cell(i, 2).value
             raise Exception
+
         # TODO
         for name in self.product_name:
             name = name.lstrip('睿扬')
             name = name.split('、')[0]
             excel_product_monthly_value_sheet_name = [i for i in excel_product_monthly_value.sheetnames if name in i][0]
             sheet_product_monthly_value = excel_product_monthly_value[excel_product_monthly_value_sheet_name]
-            excel_product_curve_template_sheet_name = [i for i in excel_product_curve_template.sheetnames if name in ''.join(i.split())][0]
+            excel_product_curve_template_sheet_name = \
+                [i for i in excel_product_curve_template.sheetnames if name in ''.join(i.split())][0]
             sheet_product_curve_template = excel_product_curve_template[excel_product_curve_template_sheet_name]
             # 获取最后一行
             max_row_value = sheet_product_monthly_value.max_row
@@ -118,12 +128,16 @@ class Picture(object):
             if sheet_product_monthly_value.cell(max_row_value,
                                                 tmp).value == sheet_product_curve_template.cell(max_row_curve, 1).value:
                 tmp = self.get_index(sheet_product_monthly_value, "净值日期")
-                sheet_product_curve_template.cell(max_row_curve, 1).value = sheet_product_monthly_value.cell(max_row_value, tmp).value
+                sheet_product_curve_template.cell(max_row_curve, 1).value = sheet_product_monthly_value.cell(
+                    max_row_value, tmp).value
                 tmp = self.get_index(sheet_product_monthly_value, "累计净值(元)")
-                sheet_product_curve_template.cell(max_row_curve, 2).value = sheet_product_monthly_value.cell(max_row_value, tmp).value
+                sheet_product_curve_template.cell(max_row_curve, 2).value = sheet_product_monthly_value.cell(
+                    max_row_value, tmp).value
                 continue
             tmp_value = self.get_index(sheet_product_monthly_value, "累计净值(元)")
-            if sheet_product_monthly_value.cell(max_row_value, tmp_value).value is None or sheet_product_monthly_value.cell(max_row_value, tmp_value-1).value is None:
+            if sheet_product_monthly_value.cell(max_row_value,
+                                                tmp_value).value is None or sheet_product_monthly_value.cell(
+                max_row_value, tmp_value - 1).value is None:
                 continue
 
             row_curve = max_row_curve + 1
@@ -131,16 +145,20 @@ class Picture(object):
             while True:
                 row_value = row_value - 1
                 if sheet_product_monthly_value.cell(row_value,
-                                                    tmp).value == sheet_product_curve_template.cell(max_row_curve, 1).value:
+                                                    tmp).value == sheet_product_curve_template.cell(max_row_curve,
+                                                                                                    1).value:
                     break
             row_value += 1
-            for row_tmp_value in range(row_value, max_row_value+1):
+            for row_tmp_value in range(row_value, max_row_value + 1):
                 for i in range(1, 13):
-                    self.copy_cell(sheet_product_curve_template.cell(row_curve-1, i), sheet_product_curve_template.cell(row_curve, i))
+                    self.copy_cell(sheet_product_curve_template.cell(row_curve - 1, i),
+                                   sheet_product_curve_template.cell(row_curve, i))
                 tmp = self.get_index(sheet_product_monthly_value, "净值日期")
-                sheet_product_curve_template.cell(row_curve, 1).value = sheet_product_monthly_value.cell(row_tmp_value, tmp).value
+                sheet_product_curve_template.cell(row_curve, 1).value = sheet_product_monthly_value.cell(row_tmp_value,
+                                                                                                         tmp).value
                 tmp = self.get_index(sheet_product_monthly_value, "累计净值(元)")
-                sheet_product_curve_template.cell(row_curve, 2).value = sheet_product_monthly_value.cell(row_tmp_value, tmp).value
+                sheet_product_curve_template.cell(row_curve, 2).value = sheet_product_monthly_value.cell(row_tmp_value,
+                                                                                                         tmp).value
                 sheet_product_curve_template.cell(row_curve, 3).value = get_position(name)
                 sheet_product_curve_template.cell(row_curve, 4).value = '=G{}/$G$3'.format(row_curve)
                 sheet_product_curve_template.cell(row_curve, 5).value = '=H{}/$H$3'.format(row_curve)
@@ -148,8 +166,11 @@ class Picture(object):
                 sheet_product_curve_template.cell(row_curve, 7).value = '=i_dq_close(G$2,$A{})'.format(row_curve)
                 sheet_product_curve_template.cell(row_curve, 8).value = '=i_dq_close(H$2,$A{})'.format(row_curve)
                 sheet_product_curve_template.cell(row_curve, 9).value = '=i_dq_close(I$2,$A{})'.format(row_curve)
-                sheet_product_curve_template.cell(row_curve, 10).value = '=B{}/B{}-1'.format(row_curve, row_curve-1)
-                sheet_product_curve_template.cell(row_curve, 11).value = '=IF(B{}>K{},B{},K{})'.format(row_curve, row_curve-1, row_curve, row_curve-1)
+                sheet_product_curve_template.cell(row_curve, 10).value = '=B{}/B{}-1'.format(row_curve, row_curve - 1)
+                sheet_product_curve_template.cell(row_curve, 11).value = '=IF(B{}>K{},B{},K{})'.format(row_curve,
+                                                                                                       row_curve - 1,
+                                                                                                       row_curve,
+                                                                                                       row_curve - 1)
                 sheet_product_curve_template.cell(row_curve, 12).value = '=B{}/K{}-1'.format(row_curve, row_curve)
                 row_curve += 1
 
@@ -167,13 +188,16 @@ class Picture(object):
                 sheet_product_curve_template.cell(4, col).value = '=MIN(L{}:L{})'.format(
                     max(max_row_curve - row_index[index_name] + 1, 3), max_row_curve)
                 # annual rate
-                sheet_product_curve_template.cell(5, col).value = '=(B{}/B{})^(12/COUNT(B{}:B{}))-1'.format(max_row_curve, max(max_row_curve - row_index[index_name], 3),
-                                                                                                            max(max_row_curve - row_index[index_name], 3) + 1, max_row_curve)
+                sheet_product_curve_template.cell(5, col).value = '=(B{}/B{})^(12/COUNT(B{}:B{}))-1'.format(
+                    max_row_curve, max(max_row_curve - row_index[index_name], 3),
+                    max(max_row_curve - row_index[index_name], 3) + 1, max_row_curve)
                 # sharp ratio
                 # sheet_product_curve_template.cell(6, col).value = '=O5/7'
                 sheet_product_curve_template.cell(7, col).value = '=STDEV(J{}:J{})*(12^0.5)'.format(
                     max(max_row_curve - row_index[index_name] + 1, 3), max_row_curve)
-                sheet_product_curve_template.cell(6, col).value = '={}5/{}7'.format(sheet_product_curve_template.cell(6, col).column_letter,sheet_product_curve_template.cell(6, col).column_letter)
+                sheet_product_curve_template.cell(6, col).value = '={}5/{}7'.format(
+                    sheet_product_curve_template.cell(6, col).column_letter,
+                    sheet_product_curve_template.cell(6, col).column_letter)
 
         excel_product_curve_template.save(file_name_product_curve_template)
         excel_product_monthly_value.close()
@@ -182,7 +206,9 @@ class Picture(object):
         reopen.Close(SaveChanges=1)
         excel_product_curve_template = openpyxl.open(file_name_product_curve_template, data_only=True)
         sheet_product_curve_template = excel_product_curve_template[excel_product_curve_template_sheet_name]
-        if sheet_product_curve_template.cell(max_row_curve, 8).value == 'Fetching...' or sheet_product_curve_template.cell(max_row_curve, 8).value == '#NAME?':
+        if sheet_product_curve_template.cell(max_row_curve,
+                                             8).value == 'Fetching...' or sheet_product_curve_template.cell(
+            max_row_curve, 8).value == '#NAME?':
             print('Please rerun the program')
         else:
             print('Successfully generate')
@@ -228,7 +254,8 @@ class Picture(object):
             table = name + "-" + "表格"
             # table
             sheet_data = excel_data[table]
-            excel_product_curve_template_sheet_name = [i for i in excel_product_curve_template.sheetnames if name in ''.join(i.split())][0]
+            excel_product_curve_template_sheet_name = \
+                [i for i in excel_product_curve_template.sheetnames if name in ''.join(i.split())][0]
             sheet_product_curve_template = excel_product_curve_template[excel_product_curve_template_sheet_name]
             max_row_curve = sheet_product_curve_template.max_row
             while True:
@@ -241,17 +268,17 @@ class Picture(object):
                     break
                 max_col_curve -= 1
             for i in range(3):
-                data_name = sheet_data.cell(3+i, 1).value
-                index_name = sheet_product_curve_template.cell(4+i, 14).value
+                data_name = sheet_data.cell(3 + i, 1).value
+                index_name = sheet_product_curve_template.cell(4 + i, 14).value
                 assert data_name == index_name
             print(name)
             for col in range(15, max_col_curve + 1):
                 index_name = sheet_product_curve_template.cell(3, col).value
-                data_name = sheet_data.cell(2, col-13).value
+                data_name = sheet_data.cell(2, col - 13).value
                 assert index_name == data_name
                 sheet_data.cell(3, col - 13).value = -sheet_product_curve_template.cell(4, col).value
                 for i in range(1, 4):
-                    sheet_data.cell(i+3, col-13).value = sheet_product_curve_template.cell(i+4, col).value
+                    sheet_data.cell(i + 3, col - 13).value = sheet_product_curve_template.cell(i + 4, col).value
 
             # config
             # 坐标为excel值+1
@@ -261,23 +288,28 @@ class Picture(object):
                 tmp = self.dividend[name]
             else:
                 tmp = 0
-            month_change = (sheet_product_curve_template.cell(max_row_curve, 2).value-tmp) / (sheet_product_curve_template.cell(max_row_curve-1, 2).value-tmp) - 1
+            month_change = (sheet_product_curve_template.cell(max_row_curve, 2).value - tmp) / (
+                    sheet_product_curve_template.cell(max_row_curve - 1, 2).value - tmp) - 1
             if sheet_product_curve_template.cell(max_row_curve, 10).value >= 0:
                 sheet_data.cell(6, 4).value = '上涨{:.2%}'.format(month_change)
             else:
                 sheet_data.cell(6, 4).value = '下跌{:.2%}'.format(month_change)
             sheet_data.cell(6, 5).value = round(float(sheet_product_curve_template.cell(max_row_curve, 2).value), 4)
-            sheet_data.cell(6, 6).value = '{}'.format(round(sheet_product_curve_template.cell(max_row_curve-1, 2).value, 4))
+            sheet_data.cell(6, 6).value = '{}'.format(
+                round(sheet_product_curve_template.cell(max_row_curve - 1, 2).value, 4))
             sheet_data.cell(6, 7).value = '{:.2%}'.format(month_change)
 
-            sheet_data.cell(6, 12).value = round(float(sheet_product_curve_template.cell(max_row_curve, 2).value)-tmp, 4)
+            sheet_data.cell(6, 12).value = round(float(sheet_product_curve_template.cell(max_row_curve, 2).value) - tmp,
+                                                 4)
 
             sheet_data.cell(6, 20).value = round(float(sheet_product_curve_template.cell(max_row_curve, 2).value), 4)
             sheet_data.cell(6, 21).value = '{:.1%}'.format(-sheet_product_curve_template.cell(4, 15).value)
 
             sheet_data.cell(6, 15).value = '{}%'.format(int(sheet_product_curve_template.cell(max_row_curve, 3).value))
-            sheet_data.cell(6, 16).value = '{}%'.format(int(sheet_product_curve_template.cell(max_row_curve-1, 3).value))
-            tmp = int(sheet_product_curve_template.cell(max_row_curve, 3).value) - int(sheet_product_curve_template.cell(max_row_curve-1, 3).value)
+            sheet_data.cell(6, 16).value = '{}%'.format(
+                int(sheet_product_curve_template.cell(max_row_curve - 1, 3).value))
+            tmp = int(sheet_product_curve_template.cell(max_row_curve, 3).value) - int(
+                sheet_product_curve_template.cell(max_row_curve - 1, 3).value)
             if tmp > 0:
                 sheet_data.cell(6, 17).value = '提高了{}个点'.format(tmp)
             elif tmp < 0:
@@ -307,7 +339,7 @@ class Picture(object):
                 if sheet_product_curve_template.cell(row_curve, 1).value == sheet_data.cell(max_row_sheet, 1).value:
                     break
             row_curve += 1
-            for row in range(row_curve, max_row_curve+1):
+            for row in range(row_curve, max_row_curve + 1):
                 sheet_data.cell(row_sheet, 1).value = sheet_product_curve_template.cell(row, 1).value
                 sheet_data.cell(row_sheet, 2).value = sheet_product_curve_template.cell(row, 3).value
                 sheet_data.cell(row_sheet, 3).value = sheet_product_curve_template.cell(row, 2).value
@@ -347,10 +379,10 @@ class Picture(object):
             tmp.append(sheet_data.cell(6, 7).value)
             data.append(tmp)
 
-        df = pd.DataFrame(data, columns=['name', 'time', 'position', 'value', 'unit_value', 'month_change'], dtype=float)
+        df = pd.DataFrame(data, columns=['name', 'time', 'position', 'value', 'unit_value', 'month_change'],
+                          dtype=float)
         df.to_csv('test.csv', encoding="utf_8_sig")
         excel_data.close()
-
 
     def get_need_font(self):
         """
@@ -566,9 +598,9 @@ class Picture(object):
         # y_1_max_limit = y_1_max + span * 0.1
 
         if y_1_min < y_1_min_limit:
-            y_1_min_limit = math.floor(y_1_min*10)/10
+            y_1_min_limit = math.floor(y_1_min * 10) / 10
         if y_1_max > y_1_max_limit:
-            y_1_max_limit = math.ceil(y_1_max*10)/10
+            y_1_max_limit = math.ceil(y_1_max * 10) / 10
         span = round(10 * (y_1_max_limit - y_1_min_limit)) / 10
         # if span % 0.2 != 0 and y_1_span != 0.5:
         #     y_1_max_limit += 0.1
@@ -580,7 +612,7 @@ class Picture(object):
         ax1.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.3f'))
         # 设置刻度
         # ax1.set_yticks(np.arange(y_1_min_limit, y_1_max_limit, y_1_span))
-        ax1.set_yticks(np.arange(y_1_min_limit, round(10*(y_1_max_limit + y_1_span))/10, y_1_span))
+        ax1.set_yticks(np.arange(y_1_min_limit, round(10 * (y_1_max_limit + y_1_span)) / 10, y_1_span))
 
         # 画框线
         min_year = x_time.min().year
@@ -700,7 +732,8 @@ class Picture(object):
         #                 pd.to_datetime(x_time.values[-1]).strftime('%Y/%m/%d') + "\n     " + "%.3f" % product_value.values[
         #             -1]),font_properties=self.times_new_roman_bold, fontsize=text_change_fontsize + 4, color=product_color, bbox=dict(facecolor='none', edgecolor=product_color, pad=6.0, lw=1))
         # 增加今年涨幅标记
-        this_year_change = self.get_this_year_chage(product_name, x_time.values, data.loc[0:data_row, product_name].values)
+        this_year_change = self.get_this_year_chage(product_name, x_time.values,
+                                                    data.loc[0:data_row, product_name].values)
         formateStr = ""
         if abs(this_year_change) > 10:
             formateStr = "%.1f"
@@ -709,7 +742,7 @@ class Picture(object):
         self.data[product_name + '-配置'].iloc[4, 13] = (formateStr % this_year_change) + "%"
         ax1.text(
             mdates.date2num(pd.to_datetime(x_time.values[-1]) + datetime.timedelta(days=int(x_time_day_span * 0.1))),
-            ax1.get_ylim()[1]+0.07, "今年涨幅" + (formateStr % this_year_change) + "%",
+            ax1.get_ylim()[1] + 0.07, "今年涨幅" + (formateStr % this_year_change) + "%",
             fontdict=dict(color=product_color,
                           family=self.kaiti_sc_bold,
                           size=25,
@@ -827,10 +860,10 @@ class Picture(object):
         img1, img2 = Image.open(png1), Image.open(png2)
         # 统一图片尺寸，可以自定义设置（宽，高）
         # img1 = img1.resize((1500, 1000), Image.ANTIALIAS)
-        pic2_new_width = int(img1.size[0] / 10 * 4)+2
-        pic2_new_height = int(pic2_new_width * (img2.size[1] / img2.size[0]))+2
+        pic2_new_width = int(img1.size[0] / 10 * 4) + 2
+        pic2_new_height = int(pic2_new_width * (img2.size[1] / img2.size[0])) + 2
         img2 = img2.resize((pic2_new_width, pic2_new_height), Image.ANTIALIAS)
-        img2 = img2.crop((1, 1, pic2_new_width-1, pic2_new_height-1))
+        img2 = img2.crop((1, 1, pic2_new_width - 1, pic2_new_height - 1))
         size1, size2 = img1.size, img2.size
         # 新图片往左偏移量
         new_width_min = int(size1[0] * 0.13)
@@ -886,6 +919,32 @@ class Picture(object):
         self.excel.Quit()  # 退出excel
         if self.visible:
             self.word.Quit()  # 退出word
+
+    def gen(self, name):
+        '''
+        生成图片并组合图片
+        :param name: 产品名称
+        :return:
+        '''
+        config = name + "-" + "配置"
+        pic = name + "-" + "图"
+        table = name + "-" + "表格"
+        self.generate_pic(name, self.data[pic], self.data[config])
+        # self.generate_table(name, self.data[table], self.data[config])
+        # self.compose_pic("./gen/" + name + "/" + pic + ".png", "./gen/" + name + "/" + table + ".png", name)
+
+    def get_product_name(self):
+        return self.product_name
+
+    def get_num(self):
+        '''
+        获取生成图/表的个数
+        :return:
+        '''
+        if (self.product_name is not None):
+            return len(self.product_name)
+        else:
+            return 0
 
 
 if __name__ == '__main__':
