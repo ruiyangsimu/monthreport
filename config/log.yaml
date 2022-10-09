@@ -3,12 +3,12 @@ formatters:
   brief:
     format: "%(asctime)s - %(message)s"
   simple:
-    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format: "%(asctime)s - %(name)s - %(threadName)s - %(levelname)s - %(message)s"
 handlers:
   console:
     class : logging.StreamHandler
-    formatter: brief
-    level: INFO
+    formatter: simple
+    level: DEBUG
     stream: ext://sys.stdout
   file:
     class : logging.FileHandler
@@ -24,9 +24,25 @@ handlers:
     backupCount: 20
     encoding: utf8
 loggers:
-  main:
+  picture:
     level: DEBUG
-    handlers: [console, file, totatingFile]
+    handlers: [file, totatingFile]
+  app:
+    level: DEBUG
+    handlers: [file, totatingFile]
+  test:
+    level: DEBUG
+    handlers: [file, totatingFile]
+  uigenpic:
+    level: DEBUG
+    handlers: [file, totatingFile]
+  uigenword:
+    level: DEBUG
+    handlers: [file, totatingFile]
+  uigendata:
+    level: DEBUG
+    handlers: [file, totatingFile]
+
 root:
   level: DEBUG
   handlers: [console]

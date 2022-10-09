@@ -1,47 +1,91 @@
+import datetime
+import logging.config
+import math
 import os
-import time
-
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mtick
-import matplotlib.dates as mdate
-from pylab import mpl
-import matplotlib.dates as mdates
-from matplotlib import font_manager
 import sys
-import pandas as pd
-from win32com.client import DispatchEx
-import pythoncom
-from PIL import ImageGrab, Image
-import datetime
-import numpy as np
-from dateutil.relativedelta import relativedelta
-import openpyxl
-import datetime
+import time
 # from WindPy import w
 from copy import copy
-import math
-import logging.config
-import yaml
 
-with open('log.yaml', 'r') as f:
+import matplotlib
+import pythoncom
+
+matplotlib.use('Qt5Agg')
+import matplotlib.dates as mdate
+import matplotlib.dates as mdates
+from matplotlib import pyplot as plt
+# import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
+import numpy as np
+import openpyxl
+import pandas as pd
+import yaml
+from PIL import ImageGrab, Image
+from dateutil.relativedelta import relativedelta
+from matplotlib import font_manager
+from pylab import mpl
+from win32com.client import DispatchEx
+
+with open('./config/log.yaml', 'r', encoding='UTF-8') as f:
     config = yaml.safe_load(f.read())
     logging.config.dictConfig(config)
 
-logger = logging.getLogger("main")
+logger = logging.getLogger("picture")
+
+
+class Config(object):
+    def __init__(self):
+        with open("./config/config.yaml", "r", encoding='UTF-8') as f:
+            config = yaml.safe_load(f)
+            self.updateYieldCurve = config['updateYieldCurve']
+            self.updateDataExcel = config['updateDataExcel']
+            self.genAllMonthReport = config['genAllMonthReport']
+            self.part_report_dir = config['part_report_dir']
+
 
 class Picture(object):
-    def __init__(self, file_name='data.xlsx', word_template_name='template.docx', visible=False):
+    def __init__(self):
+        self.config = Config()
+        self.data_dir = './data/'
+        self.main_data = self.data_dir + 'data.xlsx'
+        self.word_template_name = self.data_dir + 'template.docx'
+        self.dividend_file = self.data_dir + '分红表.xlsx'
+        self.file_name_product_curve_template = self.data_dir + '产品收益率曲线模板.xlsx'
+        self.file_name_product_monthly_value = self.data_dir + '产品月度净值.xlsx'
+        self.file_name_product_position = self.data_dir + '产品预估净值.xlsx'
+
+    def reload_config(self):
+        """
+        重新加载配置
+        :return:
+        """
+        self.config = Config()
+        self.get_product_name()
+
+    def get_product_name(self):
+        """
+        获取产品名称
+        :return:
+        """
+        # 是否生成部分周报
+        if not self.config.genAllMonthReport:
+            names = self.config.part_report_dir.split(':')
+            self.product_name = [i for i in names if i in self.product_name]
+        return self.product_name
+
+
+    def load(self, visible=False):
         logger.debug("start")
         mpl.rcParams['font.sans-serif'] = ['STKAITI']  # 指定默认字体：解决plot不能显示中文问题
         mpl.rcParams['font.weight'] = 'normal'
         mpl.rcParams['axes.unicode_minus'] = False  # 解决保存图像是负号'-'显示为方块的问题
-        print("字体缓存文件位置，如有需要可以手动删除：" + matplotlib.get_cachedir())
+        logger.info("字体缓存文件位置，如有需要可以手动删除：" + matplotlib.get_cachedir())
         self.get_need_font()
         self.visible = visible
-        self.data_name = file_name
+        word_template_name = self.word_template_name
+        self.data_name = self.main_data
         self.word_template_name = word_template_name
-        self.data = pd.read_excel(file_name, sheet_name=None)
+        self.data = pd.read_excel(self.data_name, sheet_name=None)
 
         self.product_name = []
         # 去重以获取产品名称
@@ -54,53 +98,114 @@ class Picture(object):
         except:
             pass
 
-        dividend = pd.read_excel('分红表.xlsx')
+        dividend = pd.read_excel(self.dividend_file)
         self.dividend_annual = dict(zip(dividend['产品名称'].values, dividend['差额'].values))
         self.dividend = dict(zip(dividend['产品名称'].values, dividend['总分红'].values))
 
-        self.excel = DispatchEx("Excel.Application")  # 启动excel
-        # excel files update
-        self.config = pd.read_excel('config.xlsx')
 
-        if self.config.values[2, 1] == 0:
-            names = self.config.values[3, 1].split(':')
-            self.product_name = [i for i in names if i in self.product_name]
+        self.get_product_name()
+        # self.excel = DispatchEx("Excel.Application")  # 启动excel
+        # self.excel.Visible = visible  # 可视化
+        # self.excel.DisplayAlerts = False  # 是否显示警告
+        # self.wb = self.excel.Workbooks.Open(os.path.abspath(self.main_data))  # 打开excel
 
-        if self.config.values[0, 1] == 1:
-            self.product_curve_template_generate()
-        if self.config.values[1, 1] == 1:
-            self.data_excel_generate()
+        # self.word = DispatchEx("Word.Application")  # 启动word
+        # self.word.Visible = visible  # 可视化
+        # self.word.DisplayAlerts = False  # 是否显示警告
+
+    def update_data(self, excel):
+        """
+        更新数据
+        :return:
+        """
+        # 是否更新收益率曲线excel
+        if self.config.updateDataExcel:
+            self.product_curve_template_generate(excel)
+        # 是否更新data excel
+        if self.config.updateDataExcel:
+            self.data_excel_generate(excel)
         self.check_excel_generate()
-        self.data = pd.read_excel(file_name, sheet_name=None)
-        self.excel.Visible = visible  # 可视化
-        self.excel.DisplayAlerts = False  # 是否显示警告
-        self.wb = self.excel.Workbooks.Open(os.path.abspath(file_name))  # 打开excel
-        self.word = DispatchEx("Word.Application")  # 启动word
-        self.word.Visible = visible  # 可视化
-        self.word.DisplayAlerts = False  # 是否显示警告
+        self.data = pd.read_excel(self.data_name, sheet_name=None)
 
-    def product_curve_template_generate(self):
-        file_name = os.listdir()
-        file_name_product_monthly_value = [name for name in file_name if '月度净值' in name][0]
-        file_name_product_curve_template = [name for name in file_name if '收益率曲线' in name][0]
-        file_name_product_position = [name for name in file_name if '预估净值' in name][0]
-        excel_product_monthly_value = openpyxl.open(file_name_product_monthly_value)
+    def get_file_name_product_curve_template(self):
+        """
+        获取收益率曲线excel名称
+        :return:
+        """
+        return self.file_name_product_curve_template
+
+    def get_file_name_product_monthly_value(self):
+        """
+        获取产品月度净值
+        :return:
+        """
+        return self.file_name_product_monthly_value
+
+    def get_file_name_product_position(self):
+        """
+        获取产品预估净值
+        :return:
+        """
+        return self.file_name_product_position
+
+    def get_dividend_file(self):
+        """
+        获取分红数据
+        :return:
+        """
+        return self.dividend_file
+
+    def reopen_product_curve_template(self, excel):
+        """
+        重新打开收益率曲线excel,因为里面需要调用wind excel插件，后续可以考虑直接使用wind python接口
+        :param excel:
+        :return:
+        """
+        reopen = excel.Workbooks.Open(os.path.abspath(self.get_file_name_product_curve_template()))
+        logger.debug("收益率曲线excel打开成功，等待加载数据")
+        time.sleep(10)
+        logger.debug("收益率曲线excel数据加载成功")
+        reopen.Close(SaveChanges=1)
+        logger.debug("收益率曲线excel关闭并保存成功")
+
+    def product_curve_template_generate(self, excel):
+        """
+        生成收益率曲线Excel
+        :param excel excel对象，解决excel不能跨线程调用问题
+        :return:
+        """
+        logger.debug("开始生成收益率曲线excel")
+        file_name_product_curve_template = self.get_file_name_product_curve_template()
+        logger.debug("打开月度净值表")
+        excel_product_monthly_value = openpyxl.open(self.get_file_name_product_monthly_value())
+        logger.debug("打开收益率曲线excel")
         excel_product_curve_template = openpyxl.open(file_name_product_curve_template)
-        excel_product_position = openpyxl.open(file_name_product_position)
+        logger.debug("打开月度预估净值表")
+        excel_product_position = openpyxl.open(self.get_file_name_product_position())
         sheet_product_position = excel_product_position['Sheet2']
 
         def get_position(product_name):
-            for i in range(1, sheet_product_position.max_row+1):
-                if sheet_product_position.cell(i, 1).value is not None and product_name in sheet_product_position.cell(i, 1).value:
+            """
+            获取仓位
+            :param product_name:
+            :return:
+            """
+            for i in range(1, sheet_product_position.max_row + 1):
+                if sheet_product_position.cell(i, 1).value is not None and product_name in sheet_product_position.cell(
+                        i, 1).value:
                     return sheet_product_position.cell(i, 2).value
+            logger.error("%s 获取不到最新仓位", product_name)
             raise Exception
-        # TODO
+
         for name in self.product_name:
+            # 去除开头的'睿扬'
+            logger.info("开始生成 %s 收益率曲线数据", name)
             name = name.lstrip('睿扬')
             name = name.split('、')[0]
             excel_product_monthly_value_sheet_name = [i for i in excel_product_monthly_value.sheetnames if name in i][0]
             sheet_product_monthly_value = excel_product_monthly_value[excel_product_monthly_value_sheet_name]
-            excel_product_curve_template_sheet_name = [i for i in excel_product_curve_template.sheetnames if name in ''.join(i.split())][0]
+            excel_product_curve_template_sheet_name = \
+                [i for i in excel_product_curve_template.sheetnames if name in ''.join(i.split())][0]
             sheet_product_curve_template = excel_product_curve_template[excel_product_curve_template_sheet_name]
             # 获取最后一行
             max_row_value = sheet_product_monthly_value.max_row
@@ -117,30 +222,42 @@ class Picture(object):
             # 如果未更新净值，则更新最后一行
             if sheet_product_monthly_value.cell(max_row_value,
                                                 tmp).value == sheet_product_curve_template.cell(max_row_curve, 1).value:
+                logger.info("%s 更新最后一行数据", name)
                 tmp = self.get_index(sheet_product_monthly_value, "净值日期")
-                sheet_product_curve_template.cell(max_row_curve, 1).value = sheet_product_monthly_value.cell(max_row_value, tmp).value
+                sheet_product_curve_template.cell(max_row_curve, 1).value = sheet_product_monthly_value.cell(
+                    max_row_value, tmp).value
                 tmp = self.get_index(sheet_product_monthly_value, "累计净值(元)")
-                sheet_product_curve_template.cell(max_row_curve, 2).value = sheet_product_monthly_value.cell(max_row_value, tmp).value
+                sheet_product_curve_template.cell(max_row_curve, 2).value = sheet_product_monthly_value.cell(
+                    max_row_value, tmp).value
                 continue
             tmp_value = self.get_index(sheet_product_monthly_value, "累计净值(元)")
-            if sheet_product_monthly_value.cell(max_row_value, tmp_value).value is None or sheet_product_monthly_value.cell(max_row_value, tmp_value-1).value is None:
+            if sheet_product_monthly_value.cell(max_row_value,
+                                                tmp_value).value is None or sheet_product_monthly_value.cell(
+                max_row_value, tmp_value - 1).value is None:
                 continue
 
             row_curve = max_row_curve + 1
             row_value = max_row_value
+            # 找到月度净值表中从小网上第一个和收益率曲线表中最后一个净值中相同的数
             while True:
                 row_value = row_value - 1
                 if sheet_product_monthly_value.cell(row_value,
-                                                    tmp).value == sheet_product_curve_template.cell(max_row_curve, 1).value:
+                                                    tmp).value == sheet_product_curve_template.cell(max_row_curve,
+                                                                                                    1).value:
                     break
             row_value += 1
-            for row_tmp_value in range(row_value, max_row_value+1):
+            # 生成收益率曲线表数据
+            logger.info("生成 %s 收益率曲线表数据", name)
+            for row_tmp_value in range(row_value, max_row_value + 1):
                 for i in range(1, 13):
-                    self.copy_cell(sheet_product_curve_template.cell(row_curve-1, i), sheet_product_curve_template.cell(row_curve, i))
+                    self.copy_cell(sheet_product_curve_template.cell(row_curve - 1, i),
+                                   sheet_product_curve_template.cell(row_curve, i))
                 tmp = self.get_index(sheet_product_monthly_value, "净值日期")
-                sheet_product_curve_template.cell(row_curve, 1).value = sheet_product_monthly_value.cell(row_tmp_value, tmp).value
+                sheet_product_curve_template.cell(row_curve, 1).value = sheet_product_monthly_value.cell(row_tmp_value,
+                                                                                                         tmp).value
                 tmp = self.get_index(sheet_product_monthly_value, "累计净值(元)")
-                sheet_product_curve_template.cell(row_curve, 2).value = sheet_product_monthly_value.cell(row_tmp_value, tmp).value
+                sheet_product_curve_template.cell(row_curve, 2).value = sheet_product_monthly_value.cell(row_tmp_value,
+                                                                                                         tmp).value
                 sheet_product_curve_template.cell(row_curve, 3).value = get_position(name)
                 sheet_product_curve_template.cell(row_curve, 4).value = '=G{}/$G$3'.format(row_curve)
                 sheet_product_curve_template.cell(row_curve, 5).value = '=H{}/$H$3'.format(row_curve)
@@ -148,8 +265,11 @@ class Picture(object):
                 sheet_product_curve_template.cell(row_curve, 7).value = '=i_dq_close(G$2,$A{})'.format(row_curve)
                 sheet_product_curve_template.cell(row_curve, 8).value = '=i_dq_close(H$2,$A{})'.format(row_curve)
                 sheet_product_curve_template.cell(row_curve, 9).value = '=i_dq_close(I$2,$A{})'.format(row_curve)
-                sheet_product_curve_template.cell(row_curve, 10).value = '=B{}/B{}-1'.format(row_curve, row_curve-1)
-                sheet_product_curve_template.cell(row_curve, 11).value = '=IF(B{}>K{},B{},K{})'.format(row_curve, row_curve-1, row_curve, row_curve-1)
+                sheet_product_curve_template.cell(row_curve, 10).value = '=B{}/B{}-1'.format(row_curve, row_curve - 1)
+                sheet_product_curve_template.cell(row_curve, 11).value = '=IF(B{}>K{},B{},K{})'.format(row_curve,
+                                                                                                       row_curve - 1,
+                                                                                                       row_curve,
+                                                                                                       row_curve - 1)
                 sheet_product_curve_template.cell(row_curve, 12).value = '=B{}/K{}-1'.format(row_curve, row_curve)
                 row_curve += 1
 
@@ -161,31 +281,87 @@ class Picture(object):
                 max_col_curve -= 1
             row_index = {'近一年': 12, '近二年': 24, '近三年': 36, '成立以来': max_row_curve - 3}
 
+            # 生成指标数据
+            logger.info("生成 %s 收益率曲线指标数据", name)
             for col in range(15, max_col_curve + 1):
                 index_name = sheet_product_curve_template.cell(3, col).value
                 # max drawdown
                 sheet_product_curve_template.cell(4, col).value = '=MIN(L{}:L{})'.format(
                     max(max_row_curve - row_index[index_name] + 1, 3), max_row_curve)
                 # annual rate
-                sheet_product_curve_template.cell(5, col).value = '=(B{}/B{})^(12/COUNT(B{}:B{}))-1'.format(max_row_curve, max(max_row_curve - row_index[index_name], 3),
-                                                                                                            max(max_row_curve - row_index[index_name], 3) + 1, max_row_curve)
-                # sharp ratio
-                # sheet_product_curve_template.cell(6, col).value = '=O5/7'
+                sheet_product_curve_template.cell(5, col).value = '=(B{}/B{})^(12/COUNT(B{}:B{}))-1'.format(
+                    max_row_curve, max(max_row_curve - row_index[index_name], 3),
+                    max(max_row_curve - row_index[index_name], 3) + 1, max_row_curve)
+                # 年化波动率
                 sheet_product_curve_template.cell(7, col).value = '=STDEV(J{}:J{})*(12^0.5)'.format(
                     max(max_row_curve - row_index[index_name] + 1, 3), max_row_curve)
-                sheet_product_curve_template.cell(6, col).value = '={}5/{}7'.format(sheet_product_curve_template.cell(6, col).column_letter,sheet_product_curve_template.cell(6, col).column_letter)
+                # sharp ratio
+                # 取第10列月收益率
+                values = self.get_col_range_data(sheet_product_curve_template, 10,
+                                                 max(max_row_curve - row_index[index_name] + 1, 3), max_row_curve)
+                sheet_product_curve_template.cell(6, col).value = self.sharp_ratio(values, 0.015, True)
+                # sheet_product_curve_template.cell(6, col).value = '={}5/{}7'.format(
+                #     sheet_product_curve_template.cell(6, col).column_letter,
+                #     sheet_product_curve_template.cell(6, col).column_letter)
 
+        logger.info("保存产品收益率曲线数据")
         excel_product_curve_template.save(file_name_product_curve_template)
         excel_product_monthly_value.close()
-        reopen = self.excel.Workbooks.Open(os.path.abspath(file_name_product_curve_template))
-        time.sleep(10)
-        reopen.Close(SaveChanges=1)
+        logger.info("重新使用excel打开产品收益率曲线数据,以获取wind数据")
+        self.reopen_product_curve_template(excel)
+        # reopen = self.excel.Workbooks.Open(os.path.abspath(file_name_product_curve_template))
+        # time.sleep(10)
+        # reopen.Close(SaveChanges=1)
+        logger.info("打开产品收益率曲线数据excel")
         excel_product_curve_template = openpyxl.open(file_name_product_curve_template, data_only=True)
         sheet_product_curve_template = excel_product_curve_template[excel_product_curve_template_sheet_name]
-        if sheet_product_curve_template.cell(max_row_curve, 8).value == 'Fetching...' or sheet_product_curve_template.cell(max_row_curve, 8).value == '#NAME?':
-            print('Please rerun the program')
+        logger.info("验证产品收益率曲线数据excel是否获取到wind数据")
+        if sheet_product_curve_template.cell(max_row_curve,
+                                             8).value == 'Fetching...' or sheet_product_curve_template.cell(
+            max_row_curve, 8).value == '#NAME?':
+            logger.error('收益率曲线Excel生成失败，请重试')
         else:
-            print('Successfully generate')
+            logger.info('收益率曲线Excel生成成功')
+
+    @staticmethod
+    def sharp_ratio(data, risk_free, yeared):
+        """
+        计算夏普比率
+        公式: https://pic.cofu.ltd/blog/2022/09/sharp.JPEG
+        :param data: 计算原始数据
+        :param risk_free: 无风险收益率
+        :param yeared: 是否年度化
+        :return:
+        """
+        if len(data) == 0:
+            return 0
+        sum = 0
+        for d in data:
+            sum = sum + (d - risk_free / 12)
+        std = np.std(data)
+        if std == 0:
+            return 0
+        else:
+            re = sum / len(data) / std
+            if yeared:
+                return re * 12 ** 0.5
+            else:
+                return re
+
+    @staticmethod
+    def get_col_range_data(sheet, col_index, row_start, row_end):
+        """
+        将列范围数据转化为数组
+        :param sheet: Excel 单元簿
+        :param col_index: 列号
+        :param row_start: 需要拷贝的行开始序号
+        :param row_end: 需要拷贝的行结束序号
+        :return:
+        """
+        values = []
+        for i in range(row_start, row_end + 1):
+            values.append(sheet.cell(i, 2).value / sheet.cell(i - 1, 2).value - 1)
+        return values
 
     @staticmethod
     def copy_cell(source_cell, target_cell):
@@ -213,71 +389,105 @@ class Picture(object):
             if sheet.cell(1, i).value == text:
                 return i
 
-    def data_excel_generate(self):
-        file_name = os.listdir()
-        file_name_product_curve_template = [name for name in file_name if '收益率曲线' in name][0]
+    def data_excel_generate(self, excel):
+        """
+        生成data数据
+        :param excel: excel对象
+        :return:
+        """
+        logger.debug("开始生成data excel")
+        file_name_product_curve_template = self.get_file_name_product_curve_template()
         excel_product_curve_template = openpyxl.open(file_name_product_curve_template, data_only=True)
-        excel_data = openpyxl.open(self.data_name)
+        excel_data = openpyxl.open(self.main_data)
         # TODO
         for name in self.product_name:
-            # try:
-            # for name in ['睿扬精选2号']:
-
+            logger.debug("生成 %s data excel", name)
             config = name + "-" + "配置"
             pic = name + "-" + "图"
             table = name + "-" + "表格"
             # table
             sheet_data = excel_data[table]
-            excel_product_curve_template_sheet_name = [i for i in excel_product_curve_template.sheetnames if name in ''.join(i.split())][0]
+            excel_product_curve_template_sheet_name = \
+                [i for i in excel_product_curve_template.sheetnames if name in ''.join(i.split())][0]
             sheet_product_curve_template = excel_product_curve_template[excel_product_curve_template_sheet_name]
             max_row_curve = sheet_product_curve_template.max_row
+            # 找到收益率曲线Excel最大行（从1开始计数）
             while True:
                 if type(sheet_product_curve_template.cell(max_row_curve, 1).value) is datetime.datetime:
                     break
                 max_row_curve -= 1
+            logger.debug("%s 收益率曲线Excel max row %s", name, max_row_curve)
             max_col_curve = sheet_product_curve_template.max_column
+            # 找到收益率曲线Excel最大列（从1开始计数)
             while True:
+                # “成立以来” 在第三行
                 if sheet_product_curve_template.cell(3, max_col_curve).value == '成立以来':
                     break
                 max_col_curve -= 1
+            logger.info("%s 收益率曲线Excel max col %s", name, max_col_curve)
+
+            # 验证收益率曲线Excel中指标名称与Data Excel中的指标名称是否一致，目前指标包括：最大回撤、年化收益率、夏普比率、年化波动率
+            # 收益率曲线Excel相关指标在第四行14列-第七行14列
+            # Data Excel相关指标在第三行第1列-第五行第1列
+            logger.info("验证%s Data Excel 与 收益率曲线Excel 指标名称是否一致", name)
             for i in range(3):
-                data_name = sheet_data.cell(3+i, 1).value
-                index_name = sheet_product_curve_template.cell(4+i, 14).value
+                # 名称在Data excel的第一列
+                data_name = sheet_data.cell(3 + i, 1).value
+                # 名称在收益率曲线excel的第14列
+                index_name = sheet_product_curve_template.cell(4 + i, 14).value
                 assert data_name == index_name
-            print(name)
+            # 按列将数据从收益率曲线Excel拷贝到Data Excel
+            logger.info("将 %s 收益率曲线Excel 指标数据拷贝到 Data Excel", name)
             for col in range(15, max_col_curve + 1):
                 index_name = sheet_product_curve_template.cell(3, col).value
-                data_name = sheet_data.cell(2, col-13).value
+                data_name = sheet_data.cell(2, col - 13).value
+                # 确认两张Exel列头是否一致（近一年、近二年、近三年、成立以来)
                 assert index_name == data_name
+                # 一致则将数据按列拷贝到Data Excel中
+                # 最大回撤取相反数拷贝到Data Excel中
                 sheet_data.cell(3, col - 13).value = -sheet_product_curve_template.cell(4, col).value
+                # 剩余的原样拷贝
                 for i in range(1, 4):
-                    sheet_data.cell(i+3, col-13).value = sheet_product_curve_template.cell(i+4, col).value
+                    sheet_data.cell(i + 3, col - 13).value = sheet_product_curve_template.cell(i + 4, col).value
 
             # config
             # 坐标为excel值+1
             sheet_data = excel_data[config]
+            # 拷贝最新的基金净值到Data 配置 sheet
             sheet_data.cell(6, 3).value = round(float(sheet_product_curve_template.cell(max_row_curve, 2).value), 4)
+            # 获取基金总分红数据
             if name in self.dividend.keys():
                 tmp = self.dividend[name]
             else:
                 tmp = 0
-            month_change = (sheet_product_curve_template.cell(max_row_curve, 2).value-tmp) / (sheet_product_curve_template.cell(max_row_curve-1, 2).value-tmp) - 1
+            # 计算基金月涨幅(当月值-总分红）/(上月值-总分红) -1
+            month_change = (sheet_product_curve_template.cell(max_row_curve, 2).value - tmp) / (
+                    sheet_product_curve_template.cell(max_row_curve - 1, 2).value - tmp) - 1
             if sheet_product_curve_template.cell(max_row_curve, 10).value >= 0:
                 sheet_data.cell(6, 4).value = '上涨{:.2%}'.format(month_change)
             else:
                 sheet_data.cell(6, 4).value = '下跌{:.2%}'.format(month_change)
+            # 当月净值
             sheet_data.cell(6, 5).value = round(float(sheet_product_curve_template.cell(max_row_curve, 2).value), 4)
-            sheet_data.cell(6, 6).value = '{}'.format(round(sheet_product_curve_template.cell(max_row_curve-1, 2).value, 4))
+            # 上月净值
+            sheet_data.cell(6, 6).value = '{}'.format(
+                round(sheet_product_curve_template.cell(max_row_curve - 1, 2).value, 4))
             sheet_data.cell(6, 7).value = '{:.2%}'.format(month_change)
 
-            sheet_data.cell(6, 12).value = round(float(sheet_product_curve_template.cell(max_row_curve, 2).value)-tmp, 4)
+            # 去除总分红净值
+            sheet_data.cell(6, 12).value = round(float(sheet_product_curve_template.cell(max_row_curve, 2).value) - tmp,
+                                                 4)
 
             sheet_data.cell(6, 20).value = round(float(sheet_product_curve_template.cell(max_row_curve, 2).value), 4)
             sheet_data.cell(6, 21).value = '{:.1%}'.format(-sheet_product_curve_template.cell(4, 15).value)
-
+            # 本月仓位
             sheet_data.cell(6, 15).value = '{}%'.format(int(sheet_product_curve_template.cell(max_row_curve, 3).value))
-            sheet_data.cell(6, 16).value = '{}%'.format(int(sheet_product_curve_template.cell(max_row_curve-1, 3).value))
-            tmp = int(sheet_product_curve_template.cell(max_row_curve, 3).value) - int(sheet_product_curve_template.cell(max_row_curve-1, 3).value)
+            # 上月仓位
+            sheet_data.cell(6, 16).value = '{}%'.format(
+                int(sheet_product_curve_template.cell(max_row_curve - 1, 3).value))
+            # 仓位变化
+            tmp = int(sheet_product_curve_template.cell(max_row_curve, 3).value) - int(
+                sheet_product_curve_template.cell(max_row_curve - 1, 3).value)
             if tmp > 0:
                 sheet_data.cell(6, 17).value = '提高了{}个点'.format(tmp)
             elif tmp < 0:
@@ -307,7 +517,7 @@ class Picture(object):
                 if sheet_product_curve_template.cell(row_curve, 1).value == sheet_data.cell(max_row_sheet, 1).value:
                     break
             row_curve += 1
-            for row in range(row_curve, max_row_curve+1):
+            for row in range(row_curve, max_row_curve + 1):
                 sheet_data.cell(row_sheet, 1).value = sheet_product_curve_template.cell(row, 1).value
                 sheet_data.cell(row_sheet, 2).value = sheet_product_curve_template.cell(row, 3).value
                 sheet_data.cell(row_sheet, 3).value = sheet_product_curve_template.cell(row, 2).value
@@ -319,9 +529,9 @@ class Picture(object):
             #     print(name+'failed')
         excel_data.save(self.data_name)
         excel_data.close()
-        reopen = self.excel.Workbooks.Open(os.path.abspath(self.data_name))
+        reopen = excel.Workbooks.Open(os.path.abspath(self.data_name))
         reopen.Close(SaveChanges=1)
-        print('excel data successfully generated')
+        logger.info('Data Excel successfully generated')
 
     def check_excel_generate(self):
         excel_data = openpyxl.open(self.data_name)
@@ -347,10 +557,10 @@ class Picture(object):
             tmp.append(sheet_data.cell(6, 7).value)
             data.append(tmp)
 
-        df = pd.DataFrame(data, columns=['name', 'time', 'position', 'value', 'unit_value', 'month_change'], dtype=float)
+        df = pd.DataFrame(data, columns=['name', 'time', 'position', 'value', 'unit_value', 'month_change'],
+                          dtype=float)
         df.to_csv('test.csv', encoding="utf_8_sig")
         excel_data.close()
-
 
     def get_need_font(self):
         """
@@ -381,17 +591,21 @@ class Picture(object):
         #         要替换的数量，0表示不进行替换，1表示仅替换一个)
         word.Selection.Find.Execute(old_string, False, False, False, False, False, False, 1, True, new_string, 200)
 
-    def gen_word(self, product_name, config):
+    def gen_word(self, product_name):
         """
         生成word文档
         :param product_name:
-        :param config:
         :return:
         """
         s = time.time()
+        config_name = product_name + "-" + "配置"
+        config = self.data[config_name]
+        logger.debug("%s 打开word", product_name)
         word = DispatchEx("word.Application")
+        logger.debug("%s 使用word打开程序", product_name)
         doc = word.Documents.Open(os.path.abspath(self.word_template_name))
         fill_data = config.loc[4:4].values[0]
+        logger.debug("%s 开始替换数据", product_name)
         # 替换所有数据
         for idx in range(0, len(fill_data)):
             new_str = ""
@@ -400,14 +614,20 @@ class Picture(object):
             else:
                 new_str = str(fill_data[idx])
             self.replace_doc(word, "【" + str(idx) + "】", new_str)
+        logger.debug("%s 替换数据成功", product_name)
         # 插入图片
+        logger.debug("%s 开始插入图片", product_name)
         parag_range = doc.Range(doc.Content.End - 1, doc.Content.End)
         parag_range.Text = '\r\n'
         picture_full_path = './gen/' + product_name + '/' + product_name + '-组合.png'
         parag_range.InlineShapes.AddPicture(os.path.abspath(picture_full_path))
+        logger.debug("%s 插入图片成功", product_name)
         doc.SaveAs(os.path.abspath('./gen/' + product_name + '/' + product_name + '-月报.docx'))
+        logger.debug("%s 保存word文档成功", product_name)
         doc.Close()
+        logger.debug("%s 关闭word文档成功", product_name)
         word.Quit()
+        logger.debug("%s 关闭word成功", product_name)
         logger.debug("%s gen word cost: %s s", product_name, "{:.4f}".format(time.time() - s))
 
     def excel_catch_screen(self, filename, sheetname, screen_area, prduct_name):
@@ -419,11 +639,17 @@ class Picture(object):
         :param prduct_name:
         :return:
         """
-        # pythoncom.CoInitialize()  # excel多线程相关
+        logger.debug("%s 开始进行表格截图", prduct_name)
+        pythoncom.CoInitialize()  # excel多线程相关
         try:
+            self.wb = self.excel.Workbooks.Open(os.path.abspath(filename))  # 打开excel
+            logger.debug("%s 切换视图", prduct_name)
             self.wb.Sheets(sheetname).select  # 视图切换到sheetname表
+            logger.debug("%s 选择sheet", prduct_name)
             ws = self.wb.Sheets(sheetname)  # 选择sheet
+            logger.debug("%s 复制图片区域", prduct_name)
             ws.Range(screen_area).CopyPicture()  # 复制图片区域
+            logger.debug("%s 粘贴", prduct_name)
             ws.Paste()  # 粘贴
             self.excel.Selection.ShapeRange.Name = sheetname  # 将刚刚选择的Shape重命名，避免与已有图片混淆
             ws.Shapes(sheetname).Copy()  # 选择图片
@@ -433,9 +659,9 @@ class Picture(object):
             flag = 'N'
         except Exception as e:
             flag = 'Y'  # 只要有任一截图异常，退出当前程序，将flag置为Y，等待再次调用此函数
-            print('error is:', e)  # 打印异常日志
+            logger.error('excel_catch_screen error is: %s', e)  # 打印异常日志
         finally:
-            # pythoncom.CoUninitialize()
+            pythoncom.CoUninitialize()
             return flag  # 返回flag
 
     def get_max(self, data, column_name, data_row):
@@ -497,6 +723,104 @@ class Picture(object):
                                            config.iloc[3:5, 0:1].values[0][0], product_name)
         logger.debug("%s gen table cost: %s s", product_name, "{:.4f}".format(time.time() - s))
         return
+
+    def generate_table_v1(self, product_name, table_data):
+        sheet_name = product_name + "-表格"
+        img_name = "./gen/" + product_name + "/" + sheet_name + ".png"  # 生成图片的文件名
+
+        title = product_name
+        # col_header = ["近一年", "近二年", "近二年", "成立以来"]
+        # col_header = ["近一年", "近二年", "成立以来"]
+        # col_header = ["近一年", "成立以来"]
+        col_header = []
+        for i in range(1, len(table_data.iloc[0])):
+            col_header.append(table_data.iloc[0][i])
+        columns = table_data.columns
+        if len(columns) <= 0:
+            return
+        raw_row_header = table_data[table_data.columns[0]]
+        # row_header = [
+        #     "最大回撤",
+        #     "年化收益率",
+        #     "夏普比率",
+        #     "年化波动率"]
+        row_header = []
+        for i in range(1, len(raw_row_header)):
+            row_header.append(raw_row_header[i])
+
+        # data = [["21.5%", "21.5%", "21.5%", "21.5%"],
+        #         ["20.5%", "21.5%", "21.5%", "20.5%"],
+        #         ["19.5%", "21.5%", "21.5%", "19.5%"],
+        #         ["18.5%", "21.5%", "21.5%", "18.5%"]]
+        # data = [["21.5%", "21.5%", "21.5%"],
+        #         ["20.5%", "21.5%", "20.5%"],
+        #         ["19.5%", "21.5%", "19.5%"],
+        #         ["18.5%", "21.5%", "18.5%"]]
+        # data = [["21.5%", "21.5%"],
+        #         ["20.5%", "20.5%"],
+        #         ["19.5%", "19.5%"],
+        #         ["18.5%", "18.5%"]]
+        data = []
+        for i in range(1, len(table_data)):
+            row_data = []
+            for j in range(1, len(table_data.iloc[i])):
+                # 最大回撤百分号四舍五入保留一位小数
+                if i == 1:
+                    row_data.append("{:.1%}".format(table_data.iloc[i][j]))
+                # 年化收益率/波动率百分号后不保留小数
+                if i == 2 or i == 4:
+                    row_data.append("{:.0%}".format(table_data.iloc[i][j]))
+                # 夏普比率四舍五入保留一位小数
+                if i == 3:
+                    row_data.append("{:.1f}".format(table_data.iloc[i][j]))
+            data.append(row_data)
+
+        len_col_h = len(col_header)
+        len_row_h = len(row_header)
+        len_data = len(data)
+        rows = len_row_h + 2
+        cols = len_col_h + 1
+
+        fig, ax = plt.subplots(figsize=(cols * 0.8, rows * 0.4))
+        x_min = -0.5
+        x_max = cols - 0.5
+        y_min = -0.5
+        y_max = rows - 0.5
+        ax.set_ylim(y_min, y_max)
+        ax.set_xlim(x_min, x_max)
+
+        # x轴开始偏移量
+        x_init_off_set = 1.0
+
+        # 设置标题(背景和文字分开设置，解决title不能调整背景宽度问题)
+        title_background = plt.Rectangle((x_min, y_max - 1),
+                                         x_max - x_min, 1, fc='#f8dcb6')
+        ax.add_patch(title_background)
+        ax.text(x=(x_max - x_min) / 2 - 0.5, y=y_max - 0.5, s=title, va='center', ha='center', size=10, weight='bold')
+
+        # 设置列头名称
+        for i in range(len_col_h):
+            x = x_init_off_set + i
+            ax.text(x=x, y=len_row_h, s=col_header[i], va='center', ha='center', weight='normal', size=8)
+
+        # 设置行头名称
+        for i in range(len_row_h):
+            ax.text(x=0, y=len_row_h - 1 - i, s=row_header[i], va='center', ha='center', weight='normal', size=8)
+
+        # 设置数据
+        for i in range(len_data):
+            len_data_row = len(data[i])
+            for j in range(len_data_row):
+                x = x_init_off_set + j
+                y = len_data - i - 1
+                if j == 0:
+                    ax.text(x=x, y=y, s=data[i][j], va='center', ha='center', color="r", size=8)
+                else:
+                    ax.text(x=x, y=y, s=data[i][j], va='center', ha='center', size=8)
+        ax.plot([x_min, x_max], [-0.4, -0.4], lw='.5', c='black')
+        ax.axis('off')
+        fig.savefig(img_name, dpi=400)
+        plt.close(fig)
 
     def generate_pic(self, product_name, data, config):
         """
@@ -566,9 +890,9 @@ class Picture(object):
         # y_1_max_limit = y_1_max + span * 0.1
 
         if y_1_min < y_1_min_limit:
-            y_1_min_limit = math.floor(y_1_min*10)/10
+            y_1_min_limit = math.floor(y_1_min * 10) / 10
         if y_1_max > y_1_max_limit:
-            y_1_max_limit = math.ceil(y_1_max*10)/10
+            y_1_max_limit = math.ceil(y_1_max * 10) / 10
         span = round(10 * (y_1_max_limit - y_1_min_limit)) / 10
         # if span % 0.2 != 0 and y_1_span != 0.5:
         #     y_1_max_limit += 0.1
@@ -580,7 +904,7 @@ class Picture(object):
         ax1.yaxis.set_major_formatter(mtick.FormatStrFormatter('%.3f'))
         # 设置刻度
         # ax1.set_yticks(np.arange(y_1_min_limit, y_1_max_limit, y_1_span))
-        ax1.set_yticks(np.arange(y_1_min_limit, round(10*(y_1_max_limit + y_1_span))/10, y_1_span))
+        ax1.set_yticks(np.arange(y_1_min_limit, round(10 * (y_1_max_limit + y_1_span)) / 10, y_1_span))
 
         # 画框线
         min_year = x_time.min().year
@@ -700,7 +1024,8 @@ class Picture(object):
         #                 pd.to_datetime(x_time.values[-1]).strftime('%Y/%m/%d') + "\n     " + "%.3f" % product_value.values[
         #             -1]),font_properties=self.times_new_roman_bold, fontsize=text_change_fontsize + 4, color=product_color, bbox=dict(facecolor='none', edgecolor=product_color, pad=6.0, lw=1))
         # 增加今年涨幅标记
-        this_year_change = self.get_this_year_chage(product_name, x_time.values, data.loc[0:data_row, product_name].values)
+        this_year_change = self.get_this_year_chage(product_name, x_time.values,
+                                                    data.loc[0:data_row, product_name].values)
         formateStr = ""
         if abs(this_year_change) > 10:
             formateStr = "%.1f"
@@ -709,7 +1034,7 @@ class Picture(object):
         self.data[product_name + '-配置'].iloc[4, 13] = (formateStr % this_year_change) + "%"
         ax1.text(
             mdates.date2num(pd.to_datetime(x_time.values[-1]) + datetime.timedelta(days=int(x_time_day_span * 0.1))),
-            ax1.get_ylim()[1]+0.07, "今年涨幅" + (formateStr % this_year_change) + "%",
+            ax1.get_ylim()[1] + 0.07, "今年涨幅" + (formateStr % this_year_change) + "%",
             fontdict=dict(color=product_color,
                           family=self.kaiti_sc_bold,
                           size=25,
@@ -827,16 +1152,26 @@ class Picture(object):
         img1, img2 = Image.open(png1), Image.open(png2)
         # 统一图片尺寸，可以自定义设置（宽，高）
         # img1 = img1.resize((1500, 1000), Image.ANTIALIAS)
-        pic2_new_width = int(img1.size[0] / 10 * 4)+2
-        pic2_new_height = int(pic2_new_width * (img2.size[1] / img2.size[0]))+2
+        # 有近一年、成立以来
+        if img2.size[0] <=960:
+            pic2_new_width = int(img1.size[0] / 10 * 4) + 2
+        # 有近一年、近二年、成立以来
+        if img2.size[0] > 960 and img2.size[0] < 1600:
+            pic2_new_width = int(img1.size[0] / 10 * 5) + 2
+        # 有近一年、近二年、近三年、成立以来
+        elif img2.size[0] >= 1600:
+            pic2_new_width = int(img1.size[0] / 10 * 6) + 2
+
+        pic2_new_height = int(pic2_new_width * (img2.size[1] / img2.size[0])) + 2
+
         img2 = img2.resize((pic2_new_width, pic2_new_height), Image.ANTIALIAS)
-        img2 = img2.crop((1, 1, pic2_new_width-1, pic2_new_height-1))
+        img2 = img2.crop((1, 1, pic2_new_width - 1, pic2_new_height - 1))
         size1, size2 = img1.size, img2.size
         # 新图片往左偏移量
         new_width_min = int(size1[0] * 0.13)
         file = './gen/' + product_name + '/' + product_name + "-组合.png"
         joint = Image.new('RGB', (size1[0] + size2[0] - new_width_min + 10 + 50, size1[1]), 'white')
-        loc1, loc2 = (0, 0), (size1[0] - new_width_min + 50, size1[1] - size2[1] - int(size1[1] * 0.125))
+        loc1, loc2 = (0, 0), (size1[0] - new_width_min - 100, size1[1] - size2[1] - int(size1[1] * 0.045))
         joint.paste(img1, loc1)
         joint.paste(img2, loc2)
         joint.save(file)
@@ -879,17 +1214,41 @@ class Picture(object):
             table = name + "-" + "表格"
             print(name)
             self.generate_pic(name, self.data[pic], self.data[config])
-            self.generate_table(name, self.data[table], self.data[config])
+            # self.generate_table(name, self.data[table], self.data[config])
+            self.generate_table_v1(name, self.data[table])
             self.compose_pic("./gen/" + name + "/" + pic + ".png", "./gen/" + name + "/" + table + ".png", name)
-            # self.gen_word(name, self.data[config])
-        self.wb.Close(SaveChanges=0)  # 关闭工作薄，不保存
-        self.excel.Quit()  # 退出excel
+            self.gen_word(name)
+        # self.wb.Close(SaveChanges=0)  # 关闭工作薄，不保存
+        # self.excel.Quit()  # 退出excel
         if self.visible:
             self.word.Quit()  # 退出word
 
+    def gen(self, name):
+        '''
+        生成图片并组合图片
+        :param name: 产品名称
+        :return:
+        '''
+        config = name + "-" + "配置"
+        pic = name + "-" + "图"
+        table = name + "-" + "表格"
+        self.generate_pic(name, self.data[pic], self.data[config])
+        self.generate_table_v1(name, self.data[table])
+        self.compose_pic("./gen/" + name + "/" + pic + ".png", "./gen/" + name + "/" + table + ".png", name)
+
+    def get_num(self):
+        '''
+        获取生成图/表的个数
+        :return:
+        '''
+        if (self.product_name is not None):
+            return len(self.product_name)
+        else:
+            return 0
 
 if __name__ == '__main__':
     # w.start()
     pic = Picture()
+    pic.load()
     pic.traverse_sheets()
     os.system("pause")
