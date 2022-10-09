@@ -30,9 +30,12 @@ jobs:
     - name: build
       run: |
         pyinstaller --clean --win-private-assemblies --key ${{secrets.PACKAGE_KEY}} -i .\ui\resources\logo.png -F app.py  -n ruiyang --noconsole
+    - name: zip
+      run: |
+        python ./zip.py
     - name: upload
       run: |
-        python ./upload.py --si=${{secrets.COS_SECRET_ID}} --sk=${{secrets.COS_SECRET_KEY}} --sf=dist/ruiyang.exe --df=ruiyang/ruiyang.exe
+        python ./upload.py --si=${{secrets.COS_SECRET_ID}} --sk=${{secrets.COS_SECRET_KEY}} --sf=dist/ruiyang.zip --df=ruiyang/ruiyang.zip
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names

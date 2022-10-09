@@ -5,3 +5,4 @@
 # 安装包
 pip install -r .\requirements.txt
 pyinstaller --clean --win-private-assemblies --key 0123456789 -i .\ui\resources\logo.png -F app.py -n ruiyang --noconsole
+python .\zip.py

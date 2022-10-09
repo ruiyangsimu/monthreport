@@ -14,37 +14,37 @@ from PyQt5.QtCore import QThread, pyqtSignal
 
 from gen_success import Ui_GenSuccessDialog
 
-with open('log.yaml', 'r') as f:
+with open('./config/log.yaml', 'r') as f:
     config = yaml.safe_load(f.read())
     logging.config.dictConfig(config)
 
-logger = logging.getLogger("uigenpic")
+logger = logging.getLogger("uigenword")
 
 
-class Ui_Gen_Pic(object):
-    def setupUi(self, Gen_Pic):
-        Gen_Pic.setObjectName("Gen_Pic")
-        Gen_Pic.setWindowModality(QtCore.Qt.WindowModal)
-        Gen_Pic.resize(429, 105)
+class Ui_Gen_Word(object):
+    def setupUi(self, Gen_Word):
+        Gen_Word.setObjectName("Gen_Word")
+        Gen_Word.setWindowModality(QtCore.Qt.WindowModal)
+        Gen_Word.resize(429, 105)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/images/logo.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        Gen_Pic.setWindowIcon(icon)
-        self.progressBar = QtWidgets.QProgressBar(Gen_Pic)
+        Gen_Word.setWindowIcon(icon)
+        self.progressBar = QtWidgets.QProgressBar(Gen_Word)
         self.progressBar.setGeometry(QtCore.QRect(20, 20, 401, 23))
         self.progressBar.setProperty("value", 0)
         self.progressBar.setInvertedAppearance(False)
         self.progressBar.setObjectName("progressBar")
-        self.pushButton = QtWidgets.QPushButton(Gen_Pic)
+        self.pushButton = QtWidgets.QPushButton(Gen_Word)
         self.pushButton.setGeometry(QtCore.QRect(160, 60, 81, 23))
         self.pushButton.setObjectName("pushButton")
 
-        self.retranslateUi(Gen_Pic)
-        QtCore.QMetaObject.connectSlotsByName(Gen_Pic)
+        self.retranslateUi(Gen_Word)
+        QtCore.QMetaObject.connectSlotsByName(Gen_Word)
 
     def retranslateUi(self, Gen_Pic):
         _translate = QtCore.QCoreApplication.translate
-        Gen_Pic.setWindowTitle(_translate("Gen_Pic", "生成图片"))
-        self.pushButton.setText(_translate("Gen_Pic", "生成图片"))
+        Gen_Pic.setWindowTitle(_translate("Gen_Pic", "生成Word"))
+        self.pushButton.setText(_translate("Gen_Pic", "生成Word"))
 
     def setData(self, picture):
         self.picture = picture
@@ -54,9 +54,13 @@ class Ui_Gen_Pic(object):
         self.pushButton.clicked.connect(self.btnFunc)
 
     def btnFunc(self):
-        self.thread = GenPicThread(self.picture)
+        logger.debug("开始生成word")
+        self.thread = GenWordThread(self.picture)
         self.thread._signal.connect(self.signal_accept)
+        logger.debug("生成word工作线程开始")
+        self.picture.reload_config()
         self.thread.start()
+        logger.debug("设置按钮不可用")
         self.pushButton.setEnabled(False)
 
     def signal_accept(self, msg):
@@ -73,14 +77,14 @@ class Ui_Gen_Pic(object):
             self.window.show()
             self.pushButton.setEnabled(True)
             _translate = QtCore.QCoreApplication.translate
-            self.pushButton.setText(_translate("Gen_Pic", "重新生成"))
+            self.pushButton.setText(_translate("Gen_Word", "重新生成"))
 
 
-class GenPicThread(QThread):
+class GenWordThread(QThread):
     _signal = pyqtSignal(int)
 
     def __init__(self, pic):
-        super(GenPicThread, self).__init__()
+        super(GenWordThread, self).__init__()
         self.pic = pic
 
     def __del__(self):
@@ -88,8 +92,9 @@ class GenPicThread(QThread):
 
     def run(self):
         for name in self.pic.get_product_name():
-            self.pic.gen(name)
-            logger.debug("%s gen ok", name)
+            logger.debug("%s start gen word", name)
+            self.pic.gen_word(name)
+            logger.debug("%s gen word ok", name)
             self._signal.emit(1)
 
 

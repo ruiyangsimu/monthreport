@@ -33,5 +33,4 @@ class Ui_GenSuccessDialog(object):
         _translate = QtCore.QCoreApplication.translate
         GenSuccessDialog.setWindowTitle(_translate("GenSuccessDialog", "结果"))
         self.label.setText(_translate("GenSuccessDialog", "成功"))
-
-
+import res_rc

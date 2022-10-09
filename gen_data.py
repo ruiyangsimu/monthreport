@@ -12,40 +12,41 @@ import logging.config
 import yaml
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QThread, pyqtSignal
+from win32com.client import DispatchEx
 
 from gen_success import Ui_GenSuccessDialog
 
-with open('log.yaml', 'r') as f:
+with open('./config/log.yaml', 'r') as f:
     config = yaml.safe_load(f.read())
     logging.config.dictConfig(config)
 
-logger = logging.getLogger("uigenpic")
+logger = logging.getLogger("uigendata")
 
 
-class Ui_Gen_Pic(object):
-    def setupUi(self, Gen_Pic):
-        Gen_Pic.setObjectName("Gen_Pic")
-        Gen_Pic.setWindowModality(QtCore.Qt.WindowModal)
-        Gen_Pic.resize(429, 105)
+class Ui_Gen_Data(object):
+    def setupUi(self, Gen_Data):
+        Gen_Data.setObjectName("Gen_Data")
+        Gen_Data.setWindowModality(QtCore.Qt.WindowModal)
+        Gen_Data.resize(429, 105)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/images/logo.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        Gen_Pic.setWindowIcon(icon)
-        self.progressBar = QtWidgets.QProgressBar(Gen_Pic)
+        Gen_Data.setWindowIcon(icon)
+        self.progressBar = QtWidgets.QProgressBar(Gen_Data)
         self.progressBar.setGeometry(QtCore.QRect(20, 20, 401, 23))
         self.progressBar.setProperty("value", 0)
         self.progressBar.setInvertedAppearance(False)
         self.progressBar.setObjectName("progressBar")
-        self.pushButton = QtWidgets.QPushButton(Gen_Pic)
+        self.pushButton = QtWidgets.QPushButton(Gen_Data)
         self.pushButton.setGeometry(QtCore.QRect(160, 60, 81, 23))
         self.pushButton.setObjectName("pushButton")
 
-        self.retranslateUi(Gen_Pic)
-        QtCore.QMetaObject.connectSlotsByName(Gen_Pic)
+        self.retranslateUi(Gen_Data)
+        QtCore.QMetaObject.connectSlotsByName(Gen_Data)
 
-    def retranslateUi(self, Gen_Pic):
+    def retranslateUi(self, Gen_Data):
         _translate = QtCore.QCoreApplication.translate
-        Gen_Pic.setWindowTitle(_translate("Gen_Pic", "生成图片"))
-        self.pushButton.setText(_translate("Gen_Pic", "生成图片"))
+        Gen_Data.setWindowTitle(_translate("Gen_Data", "生成数据"))
+        self.pushButton.setText(_translate("Gen_Data", "生成数据"))
 
     def setData(self, picture):
         self.picture = picture
@@ -57,6 +58,7 @@ class Ui_Gen_Pic(object):
     def btnFunc(self):
         self.thread = GenPicThread(self.picture)
         self.thread._signal.connect(self.signal_accept)
+        self.picture.reload_config()
         self.thread.start()
         self.pushButton.setEnabled(False)
 
@@ -64,7 +66,7 @@ class Ui_Gen_Pic(object):
         if (self.progressBar.value() == self.picture.get_num()):
             self.progressBar.setValue(0)
         logger.debug("accect signal : %s", msg)
-        value = self.progressBar.value() + int(msg)
+        value = self.picture.get_num()
         logger.debug("signal value: %s", value)
         self.progressBar.setValue(value)
         if self.progressBar.value() == self.picture.get_num():
@@ -88,9 +90,11 @@ class GenPicThread(QThread):
         self.wait()
 
     def run(self):
-        for name in self.pic.get_product_name():
-            self.pic.gen(name)
-            logger.debug("%s gen ok", name)
-            self._signal.emit(1)
-
+        logger.debug("start gen data")
+        logger.debug("start open Excel")
+        excel = DispatchEx("Excel.Application")  # 启动excel
+        logger.debug("open Excel success")
+        self.pic.update_data(excel)
+        self._signal.emit(1)
+        logger.debug("gen data ok")
 
