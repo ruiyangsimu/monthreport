@@ -1,0 +1,9 @@
+#是否更新收益率曲线
+updateYieldCurve: True
+#是否更新data excel
+updateDataExcel: True
+#是否生成全部周报
+genAllMonthReport: True
+#周报生成目录（用:隔开）
+part_report_dir: 睿扬尊享6号:睿扬精选2号
+
