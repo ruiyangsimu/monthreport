@@ -13,6 +13,7 @@ import yaml
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QThread, pyqtSignal
 from win32com.client import DispatchEx
+import pythoncom
 
 from gen_success import Ui_GenSuccessDialog
 
@@ -92,6 +93,7 @@ class GenPicThread(QThread):
     def run(self):
         logger.debug("start gen data")
         logger.debug("start open Excel")
+        pythoncom.CoInitialize()  # excel多线程相关
         excel = DispatchEx("Excel.Application")  # 启动excel
         logger.debug("open Excel success")
         self.pic.update_data(excel)
