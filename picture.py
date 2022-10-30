@@ -598,10 +598,14 @@ class Picture(object):
         :return:
         """
         s = time.time()
+        pythoncom.CoInitialize()  # excel多线程相关
         config_name = product_name + "-" + "配置"
         config = self.data[config_name]
         logger.debug("%s 打开word", product_name)
-        word = DispatchEx("word.Application")
+        try:
+            word = DispatchEx("word.Application")
+        except Exception as inst:
+            logger.error("open word error:%s", inst)
         logger.debug("%s 使用word打开程序", product_name)
         doc = word.Documents.Open(os.path.abspath(self.word_template_name))
         fill_data = config.loc[4:4].values[0]
